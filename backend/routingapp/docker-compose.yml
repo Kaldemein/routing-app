@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:13
+    container_name: db
+    environment:
+      POSTGRES_DB: routingapp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdbdata:/var/lib/postgresql/data/
+
+  django:
+    build: .
+    depends_on:
+      - db
+    container_name: django
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    
+  adminer:
+    image: adminer
+    ports:
+      - 8080:8080
+volumes:
+  pgdbdata: null

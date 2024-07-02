@@ -11,10 +11,6 @@ from .models import Route, Point, User
 from .serializers import RouteSerializer
 from .service_object import create_route_and_points, create_user
 from rest_framework.views import APIView
-from rest_framework.authentication import get_authorization_header
-
-
-
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -26,8 +22,8 @@ class RouteView(APIView):
             
             auth_headers = request.META['HTTP_AUTHORIZATION']
             encoded_token = sub('Bearer ', '', auth_headers) 
-            secret_key = config('KEY')
-            decoded_token = jwt.decode(encoded_token, secret_key, algorithms=["HS256"]) 
+            SECRET_KEY = config('SECRET_KEY')
+            decoded_token = jwt.decode(encoded_token, SECRET_KEY, algorithms=["HS256"]) 
             user_id = decoded_token.get('user_id')
 
             try:
@@ -37,7 +33,6 @@ class RouteView(APIView):
                 route_serializer = RouteSerializer(route)
             except User.DoesNotExist:
                 return JsonResponse({'error': 'bad request'}, status=401)
-
 
             
             return JsonResponse(route_serializer.data, status = 200)
@@ -76,13 +71,13 @@ class LoginView(APIView):
             
 
             if check_password(password, user.password_hash):
-                secret_key = config('KEY')
+                SECRET_KEY = config('SECRET_KEY')
                 payload = {
                             'user_id': user.id,
                             'exp': datetime.datetime.now() + datetime.timedelta(hours=1),
                             # 'iat': datetime.datetime.utcnow(),
                 }   
-                encoded_token = jwt.encode(payload, secret_key, algorithm='HS256')
+                encoded_token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')
 
                 return JsonResponse({
                     'encoded_token': str(encoded_token),

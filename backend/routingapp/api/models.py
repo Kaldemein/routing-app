@@ -1,6 +1,5 @@
 from django.db import models
 from django.contrib.auth.hashers import make_password, check_password
-from django.contrib.auth.models import AbstractBaseUser
 
 class User(models.Model):
     id = models.AutoField(primary_key=True)
@@ -10,7 +9,7 @@ class User(models.Model):
     password_hash = models.CharField(max_length=255, blank=False)
 
     def set_password(self, password):
-        self.password = make_password(password)
+        self.password_hash = make_password(password)
 
     def check_password(self, password):
         return check_password(password, self.password)

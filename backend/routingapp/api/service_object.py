@@ -57,4 +57,5 @@ def create_user(first_name, last_name, email, password):
                 last_name = last_name,
                 email = email)
     user.set_password(password)
+    print(user.password_hash)
     user.save()
