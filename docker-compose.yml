@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  go:
+    build:
+      context: ./go_microservice/
+      dockerfile: Dockerfile
+    depends_on:
+      - rabbitmq
+      - db
+    container_name: go
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=email_verification
+
+  db:
+    image: postgres:13
+    container_name: db
+    environment:
+      POSTGRES_DB: routingapp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdbdata:/var/lib/postgresql/data/
+
+  django:
+    build: 
+      context: ./backend/routingapp/
+      dockerfile: Dockerfile
+    depends_on:
+      - db
+      - rabbitmq
+    container_name: django
+    command: python ./backend/routingapp/manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+  adminer:
+    image: adminer
+    ports:
+      - 8080:8080
+
+volumes:
+  pgdbdata: null
