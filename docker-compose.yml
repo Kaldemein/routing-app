@@ -7,18 +7,24 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - rabbitmq
-      - db
+      - go_db
     container_name: go
     environment:
-      - DB_HOST=db
+      - DB_HOST=go_db
       - DB_PORT=5432
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=email_verification
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - SMTP_USER=routingappnoreply@gmail.com
+      - SMTP_PASSWORD=nvddhhlvxovngbpd
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
 
-  db:
+
+  django_db:
     image: postgres:13
-    container_name: db
+    container_name: django_db
     environment:
       POSTGRES_DB: routingapp
       POSTGRES_USER: postgres
@@ -26,21 +32,36 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - pgdbdata:/var/lib/postgresql/data/
+      - django_pgdbdata:/var/lib/postgresql/data/
+  
+  go_db:
+    image: postgres:13
+    container_name: go_db
+    environment:
+      POSTGRES_DB: email_verification
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - go_pgdbdata:/var/lib/postgresql/data/
 
+    
   django:
     build: 
       context: ./backend/routingapp/
       dockerfile: Dockerfile
     depends_on:
-      - db
+      - django_db
       - rabbitmq
     container_name: django
-    command: python ./backend/routingapp/manage.py runserver 0.0.0.0:8000
+    command: sh -c "python ./backend/routingapp/manage.py migrate && python ./backend/routingapp/manage.py runserver 0.0.0.0:8000"
+
     volumes:
       - .:/app
     ports:
       - "8000:8000"
+
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -48,10 +69,11 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
-  adminer:
-    image: adminer
-    ports:
-      - 8080:8080
+  # adminer:
+  #   image: adminer
+  #   ports:
+  #     - 8080:8080
 
 volumes:
-  pgdbdata: null
+  django_pgdbdata: null
+  go_pgdbdata: null
