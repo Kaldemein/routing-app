@@ -17,9 +17,11 @@ services:
       - DB_NAME=email_verification
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
       - SMTP_USER=routingappnoreply@gmail.com
-      - SMTP_PASSWORD=nvddhhlvxovngbpd
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
       - SMTP_HOST=smtp.gmail.com
       - SMTP_PORT=587
+    env_file:
+      - .env  # Файл .env для установки переменных окружения
 
 
   django_db:
