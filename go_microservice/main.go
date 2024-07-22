@@ -125,8 +125,11 @@ func sendEmail(to string, token string) error {
 
 	auth := smtp.PlainAuth("", from, password, smtpHost)
 	subject := "Subject: Email Verification\n"
-	body := fmt.Sprintf("Please use the following token to verify your email: %s\n", token)
-	msg := []byte(subject + body)
+	body := fmt.Sprintf("Please use the following link to verify your email: %s\n", token)
+
+	mime := "MIME-version: 1.0;\r\nContent-Type: text/plain; charset=\"UTF-8\";\r\n\r\n"
+
+	msg := []byte(subject + mime + body)
 
 	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, []string{to}, msg)
 	if err != nil {
