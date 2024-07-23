@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.hashers import make_password, check_password
+from django.contrib.auth.hashers import make_password
 
 class User(models.Model):
     id = models.AutoField(primary_key=True)
@@ -7,12 +7,10 @@ class User(models.Model):
     last_name = models.CharField(max_length=30, blank=False)
     email = models.EmailField(unique=True, blank=False)
     password_hash = models.CharField(max_length=255, blank=False)
+    verified = models.BooleanField(default=False)
 
     def set_password(self, password):
         self.password_hash = make_password(password)
-
-    def check_password(self, password):
-        return check_password(password, self.password)
 
     def __str__(self):
         return f'{self.first_name} {self.last_name}'

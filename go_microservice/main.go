@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"net/http"
 	"net/smtp"
 	"os"
 	"time"
@@ -57,13 +58,13 @@ func main() {
 	fmt.Println("RabbitMQ: OK!")
 
 	// Create a channel
-	ch, err := rabbitMQConn.Channel()
+	rabbitMQCh, err := rabbitMQConn.Channel()
 	failOnError(err, "Failed to open a channel")
-	defer ch.Close()
+	defer rabbitMQCh.Close()
 
 	// Declare a queue
 	queueName := "email_queue"
-	_, err = ch.QueueDeclare(
+	_, err = rabbitMQCh.QueueDeclare(
 		queueName, // name
 		true,      // durable
 		false,     // delete when unused
@@ -74,7 +75,7 @@ func main() {
 	failOnError(err, "Failed to declare a queue")
 
 	// Consume messages from the queue
-	msgs, err := ch.Consume(
+	msgs, err := rabbitMQCh.Consume(
 		queueName, // queue
 		"",        // consumer
 		true,      // auto-ack
@@ -85,11 +86,95 @@ func main() {
 	)
 	failOnError(err, "Failed to register a consumer")
 
+	// start http server
+	http.HandleFunc("/verify", func(w http.ResponseWriter, r *http.Request) {
+		verifyHandler(db, w, r, rabbitMQCh)
+		log.Printf("EMAIL VERIFIED")
+
+	})
+
+	httpPort := os.Getenv("HTTP_PORT")
+	if httpPort == "" {
+		httpPort = "9999"
+	}
+
+	go func() {
+		log.Printf("HTTP Server started on port %s", httpPort)
+		log.Fatal(http.ListenAndServe(":"+httpPort, nil))
+	}()
+
 	for msg := range msgs {
 		go messageHandler(db, msg)
 	}
 
 	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
+
+}
+
+func sendVerificationMessage(email string, rabbitMQCh *amqp.Channel) error {
+	log.Printf("sendVerificationMessage is working!!!")
+	queueName := "verification_queue"
+	_, err := rabbitMQCh.QueueDeclare(
+		queueName, // name
+		true,      // durable
+		false,     // delete when unused
+		false,     // exclusive
+		false,     // no-wait
+		nil,       // arguments
+	)
+	if err != nil {
+		return err
+	}
+
+	body := email
+	err = rabbitMQCh.Publish(
+		"",        // exchange
+		queueName, // routing key
+		false,     // mandatory
+		false,     // immediate
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        []byte(body),
+		},
+	)
+	return err
+}
+
+func verifyHandler(db *sql.DB, w http.ResponseWriter, r *http.Request, rabbitMQCh *amqp.Channel) {
+	if rabbitMQCh == nil {
+		http.Error(w, "RabbitMQ channel not initialized", http.StatusInternalServerError)
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		http.Error(w, "Token is required", http.StatusBadRequest)
+		return
+	}
+
+	// email checking and verification
+	var email string
+	query := `SELECT email FROM email_tokens WHERE token=$1`
+	err := db.QueryRow(query, token).Scan(&email)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Invalid or expired token", http.StatusBadRequest)
+			return
+		}
+		failOnError(err, "Failed to query token")
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	sendVerificationMessage(email, rabbitMQCh)
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "Email verified successfully")
 }
 
 func messageHandler(db *sql.DB, msg amqp.Delivery) {
@@ -112,7 +197,7 @@ func messageHandler(db *sql.DB, msg amqp.Delivery) {
 		query := `INSERT INTO email_tokens (email, token) VALUES ($1, $2)`
 		_, err = db.Exec(query, email, token)
 		failOnError(err, "Failed insert data :(")
-		email := string(msg.Body) // Преобразование []byte в string
+		email := string(msg.Body)
 		sendEmail(email, token)
 	}
 }
@@ -123,9 +208,13 @@ func sendEmail(to string, token string) error {
 	smtpHost := os.Getenv("SMTP_HOST")
 	smtpPort := os.Getenv("SMTP_PORT")
 
+	port := os.Getenv("HTTP_PORT")
+
+	verificationURL := fmt.Sprintf("http://localhost:%s/verify?token=%s", port, token)
+
 	auth := smtp.PlainAuth("", from, password, smtpHost)
 	subject := "Subject: Email Verification\n"
-	body := fmt.Sprintf("Please use the following link to verify your email: %s\n", token)
+	body := fmt.Sprintf("Please use the following link to verify your email: %s\n", verificationURL)
 
 	mime := "MIME-version: 1.0;\r\nContent-Type: text/plain; charset=\"UTF-8\";\r\n\r\n"
 
