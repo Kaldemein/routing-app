@@ -1,6 +1,14 @@
 version: '3.8'
 
 services:
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
   go:
     build:
       context: ./go_microservice/
@@ -9,7 +17,10 @@ services:
       - rabbitmq
       - go_db
     container_name: go
+    ports: 
+      - "9999:9999"
     environment:
+      - HTTP_PORT=9999
       - DB_HOST=go_db
       - DB_PORT=5432
       - DB_USER=postgres
@@ -24,6 +35,8 @@ services:
       - .env  # Файл .env для установки переменных окружения
 
 
+  
+  
   django_db:
     image: postgres:13
     container_name: django_db
@@ -36,6 +49,8 @@ services:
     volumes:
       - django_pgdbdata:/var/lib/postgresql/data/
   
+ 
+ 
   go_db:
     image: postgres:13
     container_name: go_db
@@ -51,30 +66,44 @@ services:
     
   django:
     build: 
-      context: ./backend/routingapp/
+      context: ./backend/routingapp
       dockerfile: Dockerfile
     depends_on:
       - django_db
       - rabbitmq
     container_name: django
-    command: sh -c "python ./backend/routingapp/manage.py migrate && python ./backend/routingapp/manage.py runserver 0.0.0.0:8000"
+    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
 
     volumes:
-      - .:/app
+      - ./backend/routingapp:/app
     ports:
       - "8000:8000"
+ 
+ 
+  celery:
+    container_name: celery
+    build:
+      context: ./backend/routingapp
+      dockerfile: Dockerfile
+    command: celery -A routingapp worker --loglevel=info
+    volumes:
+      - ./backend/routingapp:/app
+    depends_on:
+      - rabbitmq
+      - django_db
+
+ 
+  listener:
+    container_name: listener
+    build: 
+      context: ./backend/routingapp
+    command: python manage.py listen_rabbitmq
+    volumes:
+      - ./backend/routingapp:/app
+    depends_on:
+      - rabbitmq
 
 
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: rabbitmq
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-  # adminer:
-  #   image: adminer
-  #   ports:
-  #     - 8080:8080
 
 volumes:
   django_pgdbdata: null

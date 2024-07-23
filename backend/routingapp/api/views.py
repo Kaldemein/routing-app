@@ -14,10 +14,8 @@ from .serializers import RouteSerializer
 from .service_object import create_route_and_points, create_user
 from rest_framework.views import APIView
 
-
 @method_decorator(csrf_exempt, name='dispatch')
 class RouteView(APIView):
-
     def post(self, request):
         try:
             data = json.loads(request.body)
@@ -88,7 +86,9 @@ class EmailVerification(APIView):
             except User.DoesNotExist:
                 return JsonResponse({'error': 'bad request'}, status=401)
 
-        
+            
+
+
             return JsonResponse({"message": f"{email}, was successfully delevered"}, status=201) 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
