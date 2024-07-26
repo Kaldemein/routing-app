@@ -6,7 +6,6 @@ from .models import User
 def process_email(email):
     # Обработка email
     print(f"Processing email: {email}")
-    
     user = User.objects.get(email=email)
     user.verified = True
     user.save()
