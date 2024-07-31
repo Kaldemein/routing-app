@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, timedelta
 from re import sub
 from decouple import config
 from django.http import JsonResponse
@@ -11,7 +11,7 @@ import json
 import pika
 from .models import Route, Point, User
 from .serializers import RouteSerializer
-from .service_object import create_route_and_points, create_user
+from .service_object import create_route_and_points, create_user, send_to_queue, get_user_id_by_header, generate_JWT
 from rest_framework.views import APIView
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -20,22 +20,19 @@ class RouteView(APIView):
         try:
             data = json.loads(request.body)
             
-            auth_headers = request.META['HTTP_AUTHORIZATION']
-            encoded_token = sub('Bearer ', '', auth_headers) 
-            SECRET_KEY = config('SECRET_KEY')
-            decoded_token = jwt.decode(encoded_token, SECRET_KEY, algorithms=["HS256"]) 
-            user_id = decoded_token.get('user_id')
-
+            user_id = get_user_id_by_header(request)
+            
             try:
                 User.objects.get(id=user_id)
                 points = data.get('points')
+
                 route = create_route_and_points(points, user_id)
                 route_serializer = RouteSerializer(route)
             except User.DoesNotExist:
                 return JsonResponse({'error': 'bad request'}, status=401)
 
-            
             return JsonResponse(route_serializer.data, status = 200)
+        
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
 
@@ -57,36 +54,17 @@ class RegistrationView(APIView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class EmailVerification(APIView):
-    def send_to_queue(self, email):
-        connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
-        channel = connection.channel()
-        channel.queue_declare(queue='email_queue', durable=True)
-        channel.basic_publish(exchange='',
-                              routing_key='email_queue',
-                              body=email,
-                              properties=pika.BasicProperties(
-                                 delivery_mode=2,  # make message persistent
-                              ))
-        connection.close()
-
     def post(self, request):
         try:
-            data = json.loads(request.body)
             
-            auth_headers = request.META['HTTP_AUTHORIZATION']
-            encoded_token = sub('Bearer ', '', auth_headers) 
-            SECRET_KEY = config('SECRET_KEY')
-            decoded_token = jwt.decode(encoded_token, SECRET_KEY, algorithms=["HS256"]) 
-            user_id = decoded_token.get('user_id')
-
+            user_id = get_user_id_by_header(request)
+            
             try:
                 user = User.objects.get(id=user_id)
                 email = user.email
-                self.send_to_queue(email)
+                send_to_queue(email)
             except User.DoesNotExist:
                 return JsonResponse({'error': 'bad request'}, status=401)
-
-            
 
 
             return JsonResponse({"message": f"{email}, was successfully delevered"}, status=201) 
@@ -108,13 +86,8 @@ class LoginView(APIView):
             
 
             if check_password(password, user.password_hash):
-                SECRET_KEY = config('SECRET_KEY')
-                payload = {
-                            'user_id': user.id,
-                            'exp': datetime.datetime.now() + datetime.timedelta(hours=1),
-                            # 'iat': datetime.datetime.utcnow(),
-                }   
-                encoded_token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')
+                   
+                encoded_token = generate_JWT(user.id)
 
                 return JsonResponse({
                     'encoded_token': str(encoded_token),
