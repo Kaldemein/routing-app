@@ -24,4 +24,4 @@ class RouteSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Route
-        fields = ['id', 'start_at', 'ends_at', 'created_at', 'user', 'ors_coordinates', 'points']
+        fields = ['id', 'start_at', 'ends_at', 'created_at', 'user', 'osrm_coordinates', 'points']

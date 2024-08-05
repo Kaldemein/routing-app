@@ -21,7 +21,7 @@ class Route(models.Model):
     ends_at = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add = True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='routes')
-    ors_coordinates = models.JSONField()
+    osrm_coordinates = models.JSONField()
 
     def __str__(self):
         return f'Route number {self.id} by user {self.user}'

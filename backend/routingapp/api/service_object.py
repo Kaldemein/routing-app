@@ -6,46 +6,61 @@ from rest_framework.views import APIView
 import jwt
 from .models import Point, Route, User
 from decouple import config
+import polyline
+
 
 def create_route_and_points(points, user_id):
 
+    #saving points in a list
     waypoints = [[point['lon'], point['lat']] for point in points]
     print(waypoints)
 
-    response = requests.post(
-            'https://api.openrouteservice.org/v2/directions/driving-car/geojson',
-            json={'coordinates': waypoints},
-            headers={
-                'Authorization': config('ORS_TOKEN'),
-                'Content-Type': 'application/json',
-            }
-        )
+    #turn list into string
+    string_waypoints = ''
+    for i, point in enumerate(waypoints):
+        lon = point[0]
+        lat = point[1]
+        string_waypoints+=f"{lon},{lat}"
+        if i != len(waypoints)-1:
+            string_waypoints+=";"
 
-    ors_data = response.json()
-    ors_coordinates  = ors_data['features'][0]['geometry']['coordinates']
-    ors_segments = ors_data['features'][0]['properties']['segments']
-    
-    # CREATING ROUTE
+    #OSRM API string
+    url = f"http://osrm:5000/route/v1/driving/{string_waypoints}"
+
+    #request to OSRM API
+    try:
+        response = requests.post(url)
+        response.raise_for_status() 
+    except requests.exceptions.RequestException as e:
+        print("Error:", e)
+
+    #getting data from OSRM response
+    osrm_data = response.json()
+    encoded_coordinates = osrm_data['routes'][0]['geometry']
+    decoded_coordinates = polyline.decode(encoded_coordinates)
+
     route_start_at = datetime.now()
-    route_duration_seconds = ors_data['features'][0]['properties']['summary']['duration']
-    route_ends_at = route_start_at + timedelta(seconds = route_duration_seconds)
+    route_duration = osrm_data['routes'][0]['duration']
+    route_ends_at = route_start_at + timedelta(seconds=route_duration)
 
+    
+    #creating route in DB
     user_instance = User.objects.get(id=user_id)  
 
     route = Route(
         start_at = route_start_at,
         ends_at = route_ends_at,
         user=user_instance,
-        ors_coordinates = ors_coordinates
+        osrm_coordinates = decoded_coordinates
     )
     route.save()
 
-    #CREATING POINTS
+    #creating points in DB
     arrival_time = datetime.now()
     for i, waypoint in enumerate(waypoints):
         if i>0:
-            segment_duration = ors_segments[i-1]['duration']
-            arrival_time+=timedelta(seconds=segment_duration)
+            legs_duration = osrm_data['routes'][0]['legs'][i-1]['duration'] #get duration between two waypoints
+            arrival_time+=timedelta(seconds=legs_duration)
         point = Point(
             lon = waypoint[0],
             lat = waypoint[1],
@@ -53,7 +68,6 @@ def create_route_and_points(points, user_id):
             arrival_time = arrival_time
         )
         point.save()
-    
     return route 
 
 def create_user(first_name, last_name, email, password):

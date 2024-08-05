@@ -4,12 +4,9 @@ from decouple import config
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-import jwt
 from django.contrib.auth.hashers import check_password
 import json
-
-import pika
-from .models import Route, Point, User
+from .models import User
 from .serializers import RouteSerializer
 from .service_object import create_route_and_points, create_user, send_to_queue, get_user_id_by_header, generate_JWT
 from rest_framework.views import APIView
@@ -25,7 +22,6 @@ class RouteView(APIView):
             try:
                 User.objects.get(id=user_id)
                 points = data.get('points')
-
                 route = create_route_and_points(points, user_id)
                 route_serializer = RouteSerializer(route)
             except User.DoesNotExist:
@@ -56,9 +52,7 @@ class RegistrationView(APIView):
 class EmailVerification(APIView):
     def post(self, request):
         try:
-            
             user_id = get_user_id_by_header(request)
-            
             try:
                 user = User.objects.get(id=user_id)
                 email = user.email
@@ -66,11 +60,9 @@ class EmailVerification(APIView):
             except User.DoesNotExist:
                 return JsonResponse({'error': 'bad request'}, status=401)
 
-
             return JsonResponse({"message": f"{email}, was successfully delevered"}, status=201) 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
-
 
 @method_decorator(csrf_exempt, name='dispatch')
 class LoginView(APIView):
@@ -83,12 +75,9 @@ class LoginView(APIView):
                 user = User.objects.get(email=email)
             except User.DoesNotExist:
                 return JsonResponse({'error': 'Invalid credentials'}, status=401)
-            
 
             if check_password(password, user.password_hash):
-                   
                 encoded_token = generate_JWT(user.id)
-
                 return JsonResponse({
                     'encoded_token': str(encoded_token),
                 })
