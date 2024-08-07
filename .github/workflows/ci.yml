@@ -20,23 +20,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
+      - name: Set up Docker
         uses: docker/setup-buildx-action@v2
 
-      - name: Set up Docker Compose
-        uses: docker/compose-action@v2
-        with:
-          compose-file: ./docker-compose.yml
+      - name: Install Docker Compose
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker-compose
 
       - name: Build and start services
         run: |
-          docker-compose build
-          docker-compose up -d
+          docker-compose -f docker-compose.yml up -d --build
 
       - name: Run Go tests
         run: |
-          docker-compose run --rm go_test go test ./pkg/database/...
+          docker-compose -f docker-compose.yml run --rm go_test go test ./pkg/database/...
+
+      - name: Run Django tests (if any)
+        run: |
+          docker-compose -f docker-compose.yml run --rm django python manage.py test
 
       - name: Stop and remove containers
         run: |
-          docker-compose down
+          docker-compose -f docker-compose.yml down

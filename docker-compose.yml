@@ -47,6 +47,23 @@ services:
       - SMTP_PORT=587
     env_file:
       - .env
+  go_test:
+    container_name: go_test
+    build:
+      context: ./go_microservice/
+      dockerfile: Dockerfile.test
+    depends_on:
+      - rabbitmq
+      - go_db
+    environment:
+      - HTTP_PORT=9999
+      - DB_HOST=go_db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=email_verification
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+
 
   django_db:
     image: postgres:13
