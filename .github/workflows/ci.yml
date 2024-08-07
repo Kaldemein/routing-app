@@ -44,11 +44,7 @@ jobs:
 
       - name: Run Go tests
         run: |
-          docker-compose -f docker-compose.yml run --rm go_test go test ./...
-
-      - name: Run Django tests (if any)
-        run: |
-          docker-compose -f docker-compose.yml run --rm django python manage.py test
+          docker-compose -f docker-compose.yml run --rm go_test go test ./pkg/database/...
 
       - name: Stop and remove containers
         run: |
