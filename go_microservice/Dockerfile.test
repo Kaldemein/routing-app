@@ -1,0 +1,10 @@
+FROM golang:1.20 AS test
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+CMD ["go", "test", "./pkg/database/..."]
