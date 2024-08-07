@@ -28,13 +28,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y docker-compose
 
+      - name: Set up environment variables
+        run: |
+          echo "SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}" >> $GITHUB_ENV
+
       - name: Build and start services
         run: |
           docker-compose -f docker-compose.yml up -d --build
 
       - name: Run Go tests
         run: |
-          docker-compose -f docker-compose.yml run --rm go_test go test ./pkg/database/...
+          docker-compose -f docker-compose.yml run --rm go_test go test ./database/...
 
       - name: Run Django tests (if any)
         run: |
