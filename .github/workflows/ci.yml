@@ -28,9 +28,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y docker-compose
 
-      - name: Set up environment variables
+      - name: Create .env file
         run: |
-          echo "SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}" >> $GITHUB_ENV
+          echo "SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}" > .env
+          echo "DB_HOST=go_db" >> .env
+          echo "DB_PORT=5432" >> .env
+          echo "DB_USER=postgres" >> .env
+          echo "DB_PASSWORD=postgres" >> .env
+          echo "DB_NAME=email_verification" >> .env
+          echo "RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/" >> .env
 
       - name: Build and start services
         run: |
@@ -38,7 +44,7 @@ jobs:
 
       - name: Run Go tests
         run: |
-          docker-compose -f docker-compose.yml run --rm go_test go test ./database/...
+          docker-compose -f docker-compose.yml run --rm go_test go test ./...
 
       - name: Run Django tests (if any)
         run: |
