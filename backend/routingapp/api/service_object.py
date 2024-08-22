@@ -90,9 +90,10 @@ def generate_JWT(user_id):
     return encoded_token
 
 
-def send_to_queue(self, email):
+def send_to_queue(email):
         connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
         channel = connection.channel()
+        print("send_to_queue", email)
         channel.queue_declare(queue='email_queue', durable=True)
         channel.basic_publish(exchange='',
                               routing_key='email_queue',

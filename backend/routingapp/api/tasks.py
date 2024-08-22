@@ -4,7 +4,7 @@ from .models import User
 
 @shared_task
 def process_email(email):
-    # Обработка email
+    # email processing
     print(f"Processing email: {email}")
     user = User.objects.get(email=email)
     user.verified = True

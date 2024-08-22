@@ -56,6 +56,7 @@ class EmailVerification(APIView):
             try:
                 user = User.objects.get(id=user_id)
                 email = user.email
+                print(email)
                 send_to_queue(email)
             except User.DoesNotExist:
                 return JsonResponse({'error': 'bad request'}, status=401)

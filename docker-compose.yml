@@ -63,8 +63,6 @@ services:
       - DB_PASSWORD=postgres
       - DB_NAME=email_verification
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
-
-
   django_db:
     image: postgres:13
     container_name: django_db
