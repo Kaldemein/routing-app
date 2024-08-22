@@ -44,7 +44,7 @@ jobs:
 
       - name: Run Go tests
         run: |
-          docker-compose -f docker-compose.yml run --rm go_test go test ./pkg/database/...
+          docker-compose -f docker-compose.yml run --rm go_test go test ./...
 
       - name: Stop and remove containers
         run: |
